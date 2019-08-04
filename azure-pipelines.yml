@@ -58,7 +58,7 @@ steps:
 - task: GitHubRelease@0
   displayName: 'Mark release on GitHub'
   inputs:
-    gitHubConnection: 'brnbrns - GitHub'
+    gitHubConnection: 'GitHub'
     repositoryName: '$(Build.Repository.Name)'
     action: 'create'
     target: '$(Build.SourceVersion)'
