@@ -15,10 +15,10 @@ steps:
     projects: 'ContactMe.csproj'
     feedsToUse: 'select'
 - task: DotNetCoreCLI@2
-  displayName: 'Run dotnet clean'
   inputs:
-    command: 'clean'
+    command: 'custom'
     projects: 'ContactMe.csproj'
+    custom: 'clean'
     arguments: '--configuration Release'
 - task: DotNetCoreCLI@2
   displayName: 'Run dotnet build'
