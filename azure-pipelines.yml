@@ -56,7 +56,7 @@ steps:
     deploymentMethod: 'auto'
 - task: GitHubRelease@0
   inputs:
-    gitHubConnection: 'brnbrns - GitHub'
+    gitHubConnection: 'GitHub'
     repositoryName: '$(Build.Repository.Name)'
     action: 'create'
     target: '$(Build.SourceVersion)'
