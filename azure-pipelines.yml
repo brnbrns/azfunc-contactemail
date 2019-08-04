@@ -15,6 +15,7 @@ steps:
     projects: 'ContactMe.csproj'
     feedsToUse: 'select'
 - task: DotNetCoreCLI@2
+  displayName: 'Run dotnet clean'
   inputs:
     command: 'custom'
     projects: 'ContactMe.csproj'
@@ -27,6 +28,7 @@ steps:
     projects: 'ContactMe.csproj'
     arguments: '--configuration Release'
 - task: DotNetCoreCLI@2
+  displayName: 'Run dotnet publish'
   inputs:
     command: 'publish'
     publishWebProjects: false
@@ -35,8 +37,7 @@ steps:
 - task: CopyFiles@2
   displayName: 'Copy files to staging'
   inputs:
-    SourceFolder: 'bin/Release/netcoreapp2.1/publish'
-    Contents: '**'
+    Contents: 'bin/Release/netcoreapp2.1/publish/**'
     TargetFolder: '$(Build.ArtifactStagingDirectory)'
     CleanTargetFolder: true
 - task: ArchiveFiles@2
@@ -55,6 +56,7 @@ steps:
     package: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
     deploymentMethod: 'auto'
 - task: GitHubRelease@0
+  displayName: 'Mark release on GitHub'
   inputs:
     gitHubConnection: 'brnbrns - GitHub'
     repositoryName: '$(Build.Repository.Name)'
