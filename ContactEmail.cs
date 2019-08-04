@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using System.Net.Mail;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
@@ -8,6 +8,8 @@ using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using SendGrid;
+using SendGrid.Helpers.Mail;
 
 namespace BrnBrns.Function
 {
@@ -30,41 +32,46 @@ namespace BrnBrns.Function
             }
 
             // To, from emails
-            string toEmail = GetEnvironmentVariable("SmtpTo");
-            string fromEmail = GetEnvironmentVariable("SmtpUser");
+            string toEmail = GetEnvironmentVariable("SmtpToEmail");
+            string toName = GetEnvironmentVariable("SmtpToName");
+            string fromEmail = GetEnvironmentVariable("SmtpFromEmail");
+            string fromName = GetEnvironmentVariable("SmtpFromName");
             
-            // SMTP mail settings
-            string smtpHost = GetEnvironmentVariable("SmtpHost");
-            string smtpUser = fromEmail;
-            string smtpPass = GetEnvironmentVariable("SmtpPassword");
-            int smtpPort = int.Parse(GetEnvironmentVariable("SmtpPort"));
-
             // Create email subject and body
             string subject = $"New Message from {data.name}";
-            string body = $"Hello,\n\n {data.name} has sent you a message:\n\n{data.message}";
+            string body = $"<p>Hello,</p><p><b>{data.name}</b> has sent you a message:</p><p>{data.message}</p><p>--</p><p>Beep boop,</p><p>Azure Bot</p>";
 
-            // Create SMTP mail client
-            SmtpClient client = new SmtpClient();
-            client.Port = smtpPort;
-            client.EnableSsl = true;
-            client.DeliveryMethod = SmtpDeliveryMethod.Network;
-            client.UseDefaultCredentials = false;
-            client.Host = smtpHost;
-            client.Credentials = new System.Net.NetworkCredential(smtpUser, smtpPass);
+            // Create SendGrid mail client
+            string apiKey = GetEnvironmentVariable("SENDGRID_API");
+            SendGridClient client = new SendGridClient(apiKey);
 
             // Create mail message
-            MailMessage message = new MailMessage();
-            message.Subject = subject;
-            message.From = new MailAddress(fromEmail);
-            message.ReplyToList.Add(new MailAddress(data.email));
-            message.Body = body;
-            message.To.Add(new MailAddress(toEmail));
+            SendGridMessage message = new SendGridMessage();
+            message.SetSubject(subject);
+            message.AddContent(MimeType.Html, body);
+
+            message.SetFrom(new EmailAddress(fromEmail, fromName));
+            message.SetReplyTo(new EmailAddress(data.email, data.name));
+
+            List<EmailAddress> toEmails = new List<EmailAddress>
+            {
+                new EmailAddress(toEmail, toName)
+            };
+            message.AddTos(toEmails);
 
             // Send message
             try
             {
-                client.Send(message);
-                log.LogInformation("ContactEmail successfully sent email");
+                Response response = await client.SendEmailAsync(message);
+                if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
+                {
+                    log.LogInformation($"ContactEmail successfully sent email");
+                }
+                else
+                {
+                    log.LogError($"ContactEmail FAILED: {response.StatusCode}: {response.Body}");
+                    return new OkObjectResult("ContactEmail failed to send email!");
+                }
             }
             catch (Exception ex)
             {
