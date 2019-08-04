@@ -54,3 +54,12 @@ steps:
     appName: 'brnbrns'
     package: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
     deploymentMethod: 'auto'
+- task: GitHubRelease@0
+  inputs:
+    gitHubConnection: 'brnbrns - GitHub'
+    repositoryName: '$(Build.Repository.Name)'
+    action: 'create'
+    target: '$(Build.SourceVersion)'
+    tagSource: 'auto'
+    assets: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+    addChangeLog: true
