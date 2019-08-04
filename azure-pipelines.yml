@@ -34,26 +34,13 @@ steps:
     publishWebProjects: false
     projects: 'ContactMe.csproj'
     arguments: '--configuration Release'
-- task: CopyFiles@2
-  displayName: 'Copy files to staging'
-  inputs:
-    Contents: 'bin/Release/netcoreapp2.1/publish/**'
-    TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    CleanTargetFolder: true
-- task: ArchiveFiles@2
-  displayName: 'Zip files for deployment'
-  inputs:
-    rootFolderOrFile: '$(Build.ArtifactStagingDirectory)'
-    includeRootFolder: false
-    archiveType: 'zip'
-    archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
 - task: AzureFunctionApp@1
   displayName: 'Deploy to Azure Functions'
   inputs:
     azureSubscription: 'Visual Studio Enterprise(bc7bc02b-bf19-4ea1-bee5-af7cbceab2c9)'
     appType: 'functionApp'
     appName: 'brnbrns'
-    package: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+    package: 'bin/Release/netcoreapp2.1\publish.zip'
     deploymentMethod: 'auto'
 - task: GitHubRelease@0
   displayName: 'Mark release on GitHub'
