@@ -27,10 +27,10 @@ steps:
     projects: 'ContactMe.csproj'
     arguments: '--configuration Release'
 - task: DotNetCoreCLI@2
-  displayName: 'Publish files'
   inputs:
     command: 'publish'
     publishWebProjects: false
+    projects: 'ContactMe.csproj'
     arguments: '--configuration Release'
 - task: CopyFiles@2
   displayName: 'Copy files to staging'
