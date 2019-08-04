@@ -10,10 +10,42 @@ pool:
   vmImage: 'windows-latest'
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
-
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- task: DotNetCoreCLI@2
+  displayName: 'Run dotnet restore'
+  inputs:
+    command: 'restore'
+    projects: 'ContactMe.csproj'
+    feedsToUse: 'select'
+- task: DotNetCoreCLI@2
+  displayName: 'Run dotnet build'
+  inputs:
+    command: 'build'
+    projects: 'ContactMe.csproj'
+- task: DotNetCoreCLI@2
+  displayName: 'Publish files'
+  inputs:
+    command: 'publish'
+    publishWebProjects: false
+    arguments: '--configuration Release'
+- task: CopyFiles@2
+  displayName: 'Copy files to staging'
+  inputs:
+    SourceFolder: 'bin/Release/netcoreapp2.1/publish'
+    Contents: '**'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    CleanTargetFolder: true
+- task: ArchiveFiles@2
+  displayName: 'Zip files for deployment'
+  inputs:
+    rootFolderOrFile: '$(Build.ArtifactStagingDirectory)'
+    includeRootFolder: false
+    archiveType: 'zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+- task: AzureFunctionApp@1
+  displayName: 'Deploy to Azure Functions'
+  inputs:
+    azureSubscription: 'Visual Studio Enterprise(bc7bc02b-bf19-4ea1-bee5-af7cbceab2c9)'
+    appType: 'functionApp'
+    appName: 'brnbrns'
+    package: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+    deploymentMethod: 'auto'
