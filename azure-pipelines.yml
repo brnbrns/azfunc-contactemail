@@ -1,7 +1,5 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+# Brian Burns
+# Deploy dotnet project to Azure Functions
 
 trigger:
 - master
@@ -17,10 +15,17 @@ steps:
     projects: 'ContactMe.csproj'
     feedsToUse: 'select'
 - task: DotNetCoreCLI@2
+  displayName: 'Run dotnet clean'
+  inputs:
+    command: 'clean'
+    projects: 'ContactMe.csproj'
+    arguments: '--configuration Release'
+- task: DotNetCoreCLI@2
   displayName: 'Run dotnet build'
   inputs:
     command: 'build'
     projects: 'ContactMe.csproj'
+    arguments: '--configuration Release'
 - task: DotNetCoreCLI@2
   displayName: 'Publish files'
   inputs:
