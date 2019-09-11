@@ -28,6 +28,25 @@ namespace BrnBrns.Function
                 log.LogInformation($"{datum.Key}:\n{data[datum.Key]}");
             }
 
+            Envelope envelope = JsonConvert.DeserializeObject<Envelope>(data["envelope"]);
+            string[] fromAddress = data["from"].ToString().Split();
+
+            // Create mail message
+            string subject = data["subject"];
+            string body = data["html"];
+
+            Response response = await ForwardEmail(envelope, fromAddress, subject, body, log);
+            if (response.StatusCode != System.Net.HttpStatusCode.Accepted)
+            {
+                log.LogError($"EmailForward FAILED: {response.StatusCode}: {response.Body}");
+                return new OkObjectResult("EmailForward failed to send email!");
+            }
+
+            return new OkObjectResult("EmailForward successfully forwarded email");
+        }
+
+        private static async Task<Response> ForwardEmail(Envelope envelope, string[] fromAddress, string subject, string body, ILogger log)
+        {
             // To, from emails
             string toEmail = GetEnvironmentVariable("SmtpToEmail");
             string toName = GetEnvironmentVariable("SmtpToName");
@@ -38,15 +57,9 @@ namespace BrnBrns.Function
             string apiKey = GetEnvironmentVariable("SENDGRID_API");
             SendGridClient client = new SendGridClient(apiKey);
 
-            // Create mail message
-            string subject = data["subject"];
-            string body = data["html"];
-
             SendGridMessage message = new SendGridMessage();
             message.SetFrom(new EmailAddress(fromEmail, fromName));
-            Envelope envelope = JsonConvert.DeserializeObject<Envelope>(data["envelope"]);
-            string[] fromTitle = data["from"].ToString().Split(" ");
-            string replyName = fromTitle.Length > 2 ? fromTitle[0] + " " + fromTitle[1] : fromTitle[0];
+            string replyName = fromAddress.Length > 2 ? fromAddress[0] + " " + fromAddress[1] : fromAddress[0];
             message.SetReplyTo(new EmailAddress(envelope.From, replyName));
 
             body += "<br><br>(Message originally sent to: ";
@@ -68,20 +81,13 @@ namespace BrnBrns.Function
             try
             {
                 Response response = await client.SendEmailAsync(message);
-
-                if (response.StatusCode != System.Net.HttpStatusCode.Accepted)
-                {
-                    log.LogError($"EmailForward FAILED: {response.StatusCode}: {response.Body}");
-                    return new OkObjectResult("EmailForward failed to send email!");
-                }
+                return response;
             }
             catch (Exception ex)
             {
-                log.LogError($"FowardEmail ERROR: {ex.ToString()}");
-                return new OkObjectResult("EmailForward failed to send email!");
+                log.LogError($"EmailForward ERROR: {ex.ToString()}");
+                return new Response(System.Net.HttpStatusCode.InternalServerError, null, null);
             }
-
-            return new OkObjectResult("EmailForward successfully forwarded email");
         }
 
         public static string GetEnvironmentVariable(string name)
