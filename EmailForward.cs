@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
-using Newtonsoft.Json;
-using SendGrid;
-using SendGrid.Helpers.Mail;
+using StrongGrid;
+using StrongGrid.Models;
+using StrongGrid.Models.Webhooks;
 
 namespace BrnBrns.Function
 {
@@ -20,73 +20,103 @@ namespace BrnBrns.Function
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
             ILogger log)
         {
-            log.LogInformation("EmailForward received new email");
+            var parser = new WebhookParser();
+            var inboundEmail = parser.ParseInboundEmailWebhook(req.Body);
 
-            var data = await req.ReadFormAsync();
-            foreach (KeyValuePair<string, StringValues> datum in data)
+            log.LogInformation($"EmailForward received new email from {inboundEmail.From.Email}");
+
+            double score = 0.0;
+            if (!string.IsNullOrEmpty(inboundEmail.SpamScore))
             {
-                log.LogInformation($"{datum.Key}:\n{data[datum.Key]}");
+                score = double.Parse(inboundEmail.SpamScore);
+                if (score >= 5.0)
+                {
+                    log.LogInformation($"Discarding email due to spam score of {score}");
+                    return new OkObjectResult("EmailForward discarded email due to spam!");    
+                }
             }
 
-            Envelope envelope = JsonConvert.DeserializeObject<Envelope>(data["envelope"]);
-            string[] fromAddress = data["from"].ToString().Split();
-
-            // Create mail message
-            string subject = data["subject"];
-            string body = data["html"];
-
-            Response response = await ForwardEmail(envelope, fromAddress, subject, body, log);
-            if (response.StatusCode != System.Net.HttpStatusCode.Accepted)
+            string response = await ForwardEmail(inboundEmail, score, log);
+            if (string.IsNullOrEmpty(response))
             {
-                log.LogError($"EmailForward FAILED: {response.StatusCode}: {response.Body}");
+                log.LogError($"EmailForward FAILED");
                 return new OkObjectResult("EmailForward failed to send email!");
             }
 
-            return new OkObjectResult("EmailForward successfully forwarded email");
+            log.LogInformation($"EmailForward successfully forwarded email {response}");
+            return new OkObjectResult($"EmailForward successfully forwarded email {response}");
         }
 
-        private static async Task<Response> ForwardEmail(Envelope envelope, string[] fromAddress, string subject, string body, ILogger log)
+        private static async Task<string> ForwardEmail(InboundEmail mail, double spamScore, ILogger log)
         {
             // To, from emails
-            string toEmail = GetEnvironmentVariable("SmtpToEmail");
+            string toAddress = GetEnvironmentVariable("SmtpToEmail");
             string toName = GetEnvironmentVariable("SmtpToName");
-            string fromEmail = GetEnvironmentVariable("SmtpFromEmail");
+            MailAddress toEmail = new MailAddress(toAddress, toName);
+
+            string fromAddress = GetEnvironmentVariable("SmtpFromEmail");
             string fromName = GetEnvironmentVariable("SmtpFromName");
+            MailAddress fromEmail = new MailAddress(fromAddress, fromName);
 
-            // Create SendGrid mail client
+            // Create StrongGrid mail client
             string apiKey = GetEnvironmentVariable("SENDGRID_API");
-            SendGridClient client = new SendGridClient(apiKey);
+            var client = new Client(apiKey);
 
-            SendGridMessage message = new SendGridMessage();
-            message.SetFrom(new EmailAddress(fromEmail, fromName));
-            string replyName = fromAddress.Length > 2 ? fromAddress[0] + " " + fromAddress[1] : fromAddress[0];
-            message.SetReplyTo(new EmailAddress(envelope.From, replyName));
-
-            body += "<br><br>(Message originally sent to: ";
-            for (int i=0; i<envelope.To.Length; i++)
+            // Add spam report
+            if (!string.IsNullOrEmpty(mail.SpamReport) && spamScore >= 2.5)
             {
-                body += i == envelope.To.Length-1 ? $"{envelope.To[i]})" : $"{envelope.To[i]}, ";
+                if (!string.IsNullOrEmpty(mail.Html))
+                {
+                    mail.Html = mail.SpamReport + "<br>---<br>" + mail.Html;
+                }
+                mail.Text = mail.SpamReport + "\n---\n" + mail.Text;
+            }
+
+            // Add message details
+            if (!string.IsNullOrEmpty(mail.Html))
+            {
+                mail.Html += "<br>---<br>";
+                mail.Html += $"Original From: \"{mail.From.Name}\" &lt;{mail.From.Email}&gt;";
+                mail.Html += "<br>";
+                mail.Html += $"Original To: \"{mail.To.FirstOrDefault()?.Email}\" &lt;{mail.To.FirstOrDefault()?.Email}&gt;";
             }
             
-            message.SetSubject(subject);
-            message.AddContent(MimeType.Html, body);
+            mail.Text += "\n---\n";
+            mail.Text += $"Original From: \"{mail.From.Name}\" <{mail.From.Email}>\n";
+            mail.Text += $"Original To: \"{mail.To.FirstOrDefault()?.Email}\" <{mail.To.FirstOrDefault()?.Email}>";
 
-            List<EmailAddress> toEmails = new List<EmailAddress>
+            // Add attachments
+            List<Attachment> attachmentList = new List<Attachment>();
+            foreach (var attach in mail.Attachments)
             {
-                new EmailAddress(toEmail, toName)
-            };
-            message.AddTos(toEmails);
-
-            // Send message
-            try
-            {
-                Response response = await client.SendEmailAsync(message);
-                return response;
+                log.LogInformation($"{attach.FileName}\n{attach.Data}");
+                attachmentList.Add(Attachment.FromStream(attach.Data, attach.FileName, attach.ContentType, attach.ContentId));
             }
-            catch (Exception ex)
+
+            // Send mail
+            if (attachmentList.Count > 0)
             {
-                log.LogError($"EmailForward ERROR: {ex.ToString()}");
-                return new Response(System.Net.HttpStatusCode.InternalServerError, null, null);
+                var attachments = attachmentList.ToArray();
+                return await client.Mail.SendToSingleRecipientAsync(
+                    toEmail,
+                    fromEmail,
+                    mail.Subject,
+                    mail.Html,
+                    mail.Text,
+                    replyTo: mail.From,
+                    attachments: attachments
+                ).ConfigureAwait(false);
+            }
+            else
+            {
+                return await client.Mail.SendToSingleRecipientAsync(
+                    toEmail,
+                    fromEmail,
+                    mail.Subject,
+                    mail.Html,
+                    mail.Text,
+                    replyTo: mail.From
+                ).ConfigureAwait(false);
             }
         }
 
@@ -94,11 +124,5 @@ namespace BrnBrns.Function
         {
             return System.Environment.GetEnvironmentVariable(name, EnvironmentVariableTarget.Process);
         }
-    }
-
-    public class Envelope
-    {
-        public string[] To { get; set; }
-        public string From { get; set; }
     }
 }

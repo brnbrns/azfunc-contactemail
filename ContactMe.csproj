@@ -6,6 +6,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.29" />
     <PackageReference Include="SendGrid" Version="9.11.0" />
+    <PackageReference Include="StrongGrid" Version="0.66.0" />
   </ItemGroup>
   <ItemGroup>
     <None Update="host.json">
