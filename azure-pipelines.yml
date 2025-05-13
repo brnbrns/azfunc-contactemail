@@ -13,7 +13,9 @@ steps:
   inputs:
     command: 'restore'
     projects: 'ContactMe.csproj'
-    feedsToUse: 'select'
+    feedsToUse: 'config'
+    nugetConfigPath: 'nuget.config'
+    arguments: '--no-cache --configfile nuget.config'
 - task: DotNetCoreCLI@2
   displayName: 'Run dotnet clean'
   inputs:
