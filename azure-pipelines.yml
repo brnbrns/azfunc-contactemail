@@ -8,6 +8,11 @@ pool:
   vmImage: 'windows-latest'
 
 steps:
+- task: UseDotNet@2
+  displayName: 'Use .NET 8'
+  inputs:
+    packageType: 'sdk'
+    version: '8.x'
 - task: DotNetCoreCLI@2
   displayName: 'Run dotnet restore'
   inputs:
