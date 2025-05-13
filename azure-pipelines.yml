@@ -33,19 +33,21 @@ steps:
   inputs:
     command: 'build'
     arguments: '--no-restore --configuration Release'
-- task: DotNetCoreCLI@2
-  displayName: 'Run dotnet publish'
+- task: ArchiveFiles@2
+  displayName: 'Archive build'
   inputs:
-    command: 'publish'
-    publishWebProjects: false
-    arguments: '--configuration Release'
+    rootFolderOrFile: 'bin/Release/net8.0'
+    includeRootFolder: false
+    archiveType: 'zip'
+    archiveFile: 'bin/publish.zip'
+    replaceExistingArchive: true
 - task: AzureFunctionApp@1
   displayName: 'Deploy to Azure Functions'
   inputs:
     azureSubscription: 'bc7bc02b-bf19-4ea1-bee5-af7cbceab2c9 - Website'
     appType: 'functionApp'
     appName: 'brnbrns'
-    package: 'bin/Release/net8.0/publish.zip'
+    package: 'bin/publish.zip'
     deploymentMethod: 'auto'
 - task: GitHubRelease@1
   displayName: 'Mark release on GitHub'
