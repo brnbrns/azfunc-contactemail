@@ -8,6 +8,8 @@ pool:
   vmImage: 'windows-latest'
 
 steps:
+- task: NuGetAuthenticate@1
+  displayName: 'Authenticate Nuget Feed'
 - task: UseDotNet@2
   displayName: 'Use .NET 8'
   inputs:
