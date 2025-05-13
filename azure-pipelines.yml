@@ -17,7 +17,6 @@ steps:
   displayName: 'Run dotnet restore'
   inputs:
     command: 'restore'
-    projects: 'ContactMe.csproj'
     feedsToUse: 'config'
     nugetConfigPath: 'nuget.config'
     arguments: '--no-cache --configfile nuget.config'
@@ -25,21 +24,18 @@ steps:
   displayName: 'Run dotnet clean'
   inputs:
     command: 'custom'
-    projects: 'ContactMe.csproj'
     custom: 'clean'
     arguments: '--configuration Release'
 - task: DotNetCoreCLI@2
   displayName: 'Run dotnet build'
   inputs:
     command: 'build'
-    projects: 'ContactMe.csproj'
-    arguments: '--configuration Release'
+    arguments: '--no-restore --configuration Release'
 - task: DotNetCoreCLI@2
   displayName: 'Run dotnet publish'
   inputs:
     command: 'publish'
     publishWebProjects: false
-    projects: 'ContactMe.csproj'
     arguments: '--configuration Release'
 - task: AzureFunctionApp@1
   displayName: 'Deploy to Azure Functions'
