@@ -44,18 +44,18 @@ steps:
 - task: AzureFunctionApp@1
   displayName: 'Deploy to Azure Functions'
   inputs:
-    azureSubscription: 'Visual Studio Enterprise(bc7bc02b-bf19-4ea1-bee5-af7cbceab2c9)'
+    azureSubscription: 'bc7bc02b-bf19-4ea1-bee5-af7cbceab2c9 - Website'
     appType: 'functionApp'
     appName: 'brnbrns'
-    package: 'bin/Release/net8.0\publish.zip'
+    package: 'bin/Release/net8.0/publish.zip'
     deploymentMethod: 'auto'
-- task: GitHubRelease@0
+- task: GitHubRelease@1
   displayName: 'Mark release on GitHub'
   inputs:
     gitHubConnection: 'GitHub'
     repositoryName: '$(Build.Repository.Name)'
     action: 'create'
     target: '$(Build.SourceVersion)'
-    tagSource: 'auto'
-    assets: 'bin/Release/net8.0\publish.zip'
+    tagSource: 'gitTag'
+    assets: 'bin/Release/net8.0/publish.zip'
     addChangeLog: true
