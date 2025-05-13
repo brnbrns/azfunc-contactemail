@@ -51,5 +51,5 @@ steps:
     action: 'create'
     target: '$(Build.SourceVersion)'
     tagSource: 'gitTag'
-    assets: 'bin/Release/net8.0/publish.zip'
+    assets: 'bin/publish.zip'
     addChangeLog: true
