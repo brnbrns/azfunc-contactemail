@@ -21,7 +21,7 @@ namespace BrnBrns.Function
             ILogger log)
         {
             var parser = new WebhookParser();
-            var inboundEmail = parser.ParseInboundEmailWebhook(req.Body);
+            var inboundEmail = await parser.ParseInboundEmailWebhookAsync(req.Body);
 
             log.LogInformation($"EmailForward received new email from {inboundEmail.From.Email}");
 

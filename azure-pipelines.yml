@@ -40,7 +40,7 @@ steps:
     azureSubscription: 'Visual Studio Enterprise(bc7bc02b-bf19-4ea1-bee5-af7cbceab2c9)'
     appType: 'functionApp'
     appName: 'brnbrns'
-    package: 'bin/Release/netcoreapp2.1\publish.zip'
+    package: 'bin/Release/net8.0\publish.zip'
     deploymentMethod: 'auto'
 - task: GitHubRelease@0
   displayName: 'Mark release on GitHub'
@@ -50,5 +50,5 @@ steps:
     action: 'create'
     target: '$(Build.SourceVersion)'
     tagSource: 'auto'
-    assets: 'bin/Release/netcoreapp2.1\publish.zip'
+    assets: 'bin/Release/net8.0\publish.zip'
     addChangeLog: true
