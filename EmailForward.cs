@@ -4,8 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
+using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using StrongGrid;
 using StrongGrid.Models;
@@ -13,17 +12,23 @@ using StrongGrid.Models.Webhooks;
 
 namespace BrnBrns.Function
 {
-    public static class EmailForward
+    public class EmailForward
     {
-        [FunctionName("EmailForward")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
-            ILogger log)
+        private readonly ILogger<EmailForward> _logger;
+
+        public EmailForward(ILogger<EmailForward> logger)
+        {
+            _logger = logger;
+        }
+
+        [Function("EmailForward")]
+        public async Task<IActionResult> Run(
+            [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req)
         {
             var parser = new WebhookParser();
             var inboundEmail = await parser.ParseInboundEmailWebhookAsync(req.Body);
 
-            log.LogInformation($"EmailForward received new email from {inboundEmail.From.Email}");
+            _logger.LogInformation($"EmailForward received new email from {inboundEmail.From.Email}");
 
             double score = 0.0;
             if (!string.IsNullOrEmpty(inboundEmail.SpamScore))
@@ -31,23 +36,23 @@ namespace BrnBrns.Function
                 score = double.Parse(inboundEmail.SpamScore);
                 if (score >= 5.0)
                 {
-                    log.LogInformation($"Discarding email due to spam score of {score}");
+                    _logger.LogInformation($"Discarding email due to spam score of {score}");
                     return new OkObjectResult("EmailForward discarded email due to spam!");    
                 }
             }
 
-            string response = await ForwardEmail(inboundEmail, score, log);
+            string response = await ForwardEmail(inboundEmail, score);
             if (string.IsNullOrEmpty(response))
             {
-                log.LogError($"EmailForward FAILED");
+                _logger.LogError($"EmailForward FAILED");
                 return new OkObjectResult("EmailForward failed to send email!");
             }
 
-            log.LogInformation($"EmailForward successfully forwarded email {response}");
+            _logger.LogInformation($"EmailForward successfully forwarded email {response}");
             return new OkObjectResult($"EmailForward successfully forwarded email {response}");
         }
 
-        private static async Task<string> ForwardEmail(InboundEmail mail, double spamScore, ILogger log)
+        private async Task<string> ForwardEmail(InboundEmail mail, double spamScore)
         {
             // To, from emails
             string toAddress = GetEnvironmentVariable("SmtpToEmail");
@@ -89,7 +94,7 @@ namespace BrnBrns.Function
             List<Attachment> attachmentList = new List<Attachment>();
             foreach (var attach in mail.Attachments)
             {
-                log.LogInformation($"{attach.FileName}\n{attach.Data}");
+                _logger.LogInformation($"{attach.FileName}\n{attach.Data}");
                 attachmentList.Add(Attachment.FromStream(attach.Data, attach.FileName, attach.ContentType, attach.ContentId));
             }
 
@@ -120,7 +125,7 @@ namespace BrnBrns.Function
             }
         }
 
-        public static string GetEnvironmentVariable(string name)
+        public string GetEnvironmentVariable(string name)
         {
             return System.Environment.GetEnvironmentVariable(name, EnvironmentVariableTarget.Process);
         }

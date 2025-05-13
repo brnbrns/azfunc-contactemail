@@ -3,8 +3,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
+using Microsoft.Azure.Functions.Worker; 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -13,14 +12,20 @@ using SendGrid.Helpers.Mail;
 
 namespace BrnBrns.Function
 {
-    public static class ContactEmail
+    public class ContactEmail
     {
-        [FunctionName("ContactEmail")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequest req,
-            ILogger log)
+        private readonly ILogger<ContactEmail> _logger;
+
+        public ContactEmail(ILogger<ContactEmail> logger)
         {
-            log.LogInformation("ContactEmail received new request");
+            _logger = logger;
+        }
+
+        [Function("ContactEmail")]
+        public async Task<IActionResult> Run(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequest req)
+        {
+            _logger.LogInformation("ContactEmail received new request");
 
             // Get posted req object
             string content = await new StreamReader(req.Body).ReadToEndAsync();
@@ -65,17 +70,17 @@ namespace BrnBrns.Function
                 Response response = await client.SendEmailAsync(message);
                 if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
                 {
-                    log.LogInformation($"ContactEmail successfully sent email");
+                    _logger.LogInformation($"ContactEmail successfully sent email");
                 }
                 else
                 {
-                    log.LogError($"ContactEmail FAILED: {response.StatusCode}: {response.Body}");
+                    _logger.LogError($"ContactEmail FAILED: {response.StatusCode}: {response.Body}");
                     return new OkObjectResult("ContactEmail failed to send email!");
                 }
             }
             catch (Exception ex)
             {
-                log.LogError($"ContactEmail ERROR: {ex.ToString()}");
+                _logger.LogError($"ContactEmail ERROR: {ex.ToString()}");
                 return new OkObjectResult("ContactEmail failed to send email!");
             }
 
